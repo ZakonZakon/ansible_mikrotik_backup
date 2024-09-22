@@ -3,6 +3,7 @@
   gather_facts: false
   vars:
     backup_dir: "/home/m/backup/" # куда будут сохраняться бэкапы...
+# Добавить переменную пароля
   # serial: 10 # в 10 потоков...
   tasks:
     - name: device identity # Получаем имя
