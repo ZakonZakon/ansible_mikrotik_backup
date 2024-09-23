@@ -3,55 +3,57 @@
   gather_facts: false
   vars:
     backup_dir: "/home/m/backup/" # куда будут сохраняться бэкапы...
-# Добавить переменную пароля
+  # надобно добавить переменную пароля
   # serial: 10 # в 10 потоков...
   tasks:
-    - name: device identity # Получаем имя
-      ansible.builtin.shell: >-
-        sshpass -p '{{ ansible_password }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} /system identity print
-      register: identity
-      delegate_to: localhost
+    - block:
+        - name: device identity # Получаем имя
+          ansible.builtin.shell: >-
+            sshpass -p '{{ ansible_password }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} /system identity print
+          register: identity
+          delegate_to: localhost
 
-    - name: Extract device name # Чистим
-      ansible.builtin.set_fact:
-        device_name: "{{ identity.stdout | regex_replace('name: ', '') | trim }}"
-      when: identity is defined
+        - name: Extract device name # Чистим
+          ansible.builtin.set_fact:
+            device_name: "{{ identity.stdout | regex_replace('name: ', '') | trim }}"
+          when: identity is defined
 
-    - name: Set host_name variable # Создаем переменную полного имени будующего бекапа
-      ansible.builtin.set_fact:
-        host_name: "{{ device_name }}_{{ inventory_hostname }}_{{ lookup('pipe', 'date +%Y-%m') }}.backup"
-      when: device_name is defined
+        - name: Set host_name variable # Создаем переменную полного имени будующего бекапа
+          ansible.builtin.set_fact:
+            host_name: "{{ device_name }}_{{ inventory_hostname }}_{{ lookup('pipe', 'date +%Y-%m') }}.backup"
+          when: device_name is defined
 
-    - name: Check if backup file exists # Находим имя из переменной
-      ansible.builtin.stat:
-        path: "{{ backup_dir }}/{{ host_name }}"
-      register: backup_file
+        - name: Check if backup file exists # Находим имя из переменной
+          ansible.builtin.stat:
+            path: "{{ backup_dir }}/{{ host_name }}"
+          register: backup_file
 
-    - name: Fail if backup file exists # Фейл в случае если уже есть бэкап...
-      ansible.builtin.fail:
-        msg: "Backup file {{ host_name }} already exists in {{ backup_dir }}"
-      when: backup_file.stat.exists
+        - name: Fail if backup file exists # Фейл в случае если уже есть бэкап...
+          ansible.builtin.fail:
+            msg: "Backup file {{ host_name }} already exists in {{ backup_dir }}"
+          when: backup_file.stat.exists
 
-    - name: Create backup on  # Создаем Бекап
-      ansible.builtin.shell: >-
-        sshpass -p '{{ ansible_password }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} /system backup save name={{ host_name }} password=parol
-      register: export
-      delegate_to: localhost
-      when: not backup_file.stat.exists
+        - name: Create backup on  # Создаем Бекап
+          ansible.builtin.shell: >-
+            sshpass -p '{{ ansible_password }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} /system backup save name={{ host_name }} password=parol
+          register: export
+          delegate_to: localhost
+          when: not backup_file.stat.exists
 
-    - name: Download backup # Качаем бекап
-      ansible.builtin.shell: >-
-        sshpass -p '{{ ansible_password }}' scp -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }}:{{ host_name }} {{ backup_dir }}
-      when: export is defined and device_name is defined
-      delegate_to: localhost
+        - name: Download backup # Качаем бекап
+          ansible.builtin.shell: >-
+            sshpass -p '{{ ansible_password }}' scp -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }}:{{ host_name }} {{ backup_dir }}
+          when: export is defined and device_name is defined
+          delegate_to: localhost
 
-    - name: Delete backup from # Удаляем
-      ansible.builtin.shell: >-
-        sshpass -p '{{ ansible_password }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} /file remove {{ host_name }}
+        - name: Delete backup from # Удаляем
+          ansible.builtin.shell: >-
+            sshpass -p '{{ ansible_password }}' ssh -o StrictHostKeyChecking=no {{ ansible_user }}@{{ inventory_hostname }} /file remove {{ host_name }}
 
-    - name: Clean up # Очищаемся... почистием сейчас удалим..
-      ansible.builtin.meta: reset_connection
+        - name: Clean up # Очищаемся... почистием сейчас удалим..
+          ansible.builtin.meta: reset_connection
 
-  rescue:
-    - name: Clean up on failure # Очистка в случае фейлов...
-      ansible.builtin.meta: reset_connection
+      rescue:
+       - name: Clean up on failure # Очистка в случае фейлов...
+         ansible.builtin.meta: reset_connection
+        
