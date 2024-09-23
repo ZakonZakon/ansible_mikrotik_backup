@@ -30,7 +30,8 @@
 
         - name: Fail if backup file exists # Фейл в случае если уже есть бэкап...
           ansible.builtin.fail:
-            msg: "Backup file {{ host_name }} already exists in {{ backup_dir }}"
+            msg: "Backup file {{ host_name }} already exists in {{ backup_dir }} - skipping rest"
+            failed_when: true
           when: backup_file.stat.exists
 
         - name: Create backup on  # Создаем Бекап
