@@ -23,16 +23,18 @@
             host_name: "{{ device_name }}_{{ inventory_hostname }}_{{ lookup('pipe', 'date +%Y-%m') }}.backup"
           when: device_name is defined
 
-        - name: Check if backup file exists # Находим имя из переменной
-          ansible.builtin.stat:
+        - name: Check if backup file exists
+          ansible.builtin.file:
             path: "{{ backup_dir }}/{{ host_name }}"
+            state: present
           register: backup_file
+          ignore_errors: true          
 
         - name: Fail if backup file exists # Фейл в случае если уже есть бэкап...
           ansible.builtin.fail:
             msg: "Backup file {{ host_name }} already exists in {{ backup_dir }} - skipping rest"
             failed_when: true
-          when: backup_file.stat.exists
+          when: backup_file.stat.exists         
 
         - name: Create backup on  # Создаем Бекап
           ansible.builtin.shell: >-
